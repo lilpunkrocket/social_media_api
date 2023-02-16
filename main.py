@@ -11,7 +11,7 @@ class Post(BaseModel):
     rating: Optional[int] = None
 
 
-my_posts = [{"title": "top beaches on Florida",
+posts = [{"title": "top beaches on Florida",
             "content": "check out awesomae beches",
             "id": 1},
             {"title": "favorite foods",
@@ -25,7 +25,7 @@ def root():
 
 @app.get("/posts")
 def get_posts():
-    return {"data": my_posts}
+    return {"data": posts}
 
 
 @app.post("/posts")
