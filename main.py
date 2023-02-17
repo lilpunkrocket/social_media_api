@@ -14,12 +14,18 @@ class Post(BaseModel):
 
 
 posts = [{"title": "top beaches on Florida",
+
             "content": "check out awesomae beches",
             "id": 1},
             {"title": "favorite foods",
             "content": "I like pizza",
             "id": 2}]
 
+def find_post(id):
+    for post in posts:
+        if post.get("id", -1) == id:
+            return post
+    raise ValueError
 
 @app.get("/")
 def root():
@@ -33,5 +39,15 @@ def get_posts():
 
 @app.post("/posts")
 def create_posts(post: Post):
-    print(post)
+    post_dict = post.dict()
+    post_dict['id'] = posts[-1].get('id', 0) + 1
+    posts.append(post_dict)
     return {"data": post.dict()}
+
+
+@app.get("/posts/{id}")
+def get_post(id: int):
+    try:
+        return {"detail post": find_post(id)}
+    except ValueError:
+        return {"Error,": "There are no post with this id"}
