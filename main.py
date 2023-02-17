@@ -2,8 +2,10 @@ from typing import Optional
 from fastapi import Body, FastAPI
 from pydantic import BaseModel
 
+# initializing the main app
 app = FastAPI()
 
+# our data schema
 class Post(BaseModel):
     title: str
     content: str
@@ -17,6 +19,7 @@ posts = [{"title": "top beaches on Florida",
             {"title": "favorite foods",
             "content": "I like pizza",
             "id": 2}]
+
 
 @app.get("/")
 def root():
