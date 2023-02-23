@@ -23,63 +23,59 @@ while password:=input('Enter password: '):
     except Exception as e:
         print('Connection to database failed')
         print('Error', e)
+        
 
-
-posts = [{"title": "top beaches on Florida",
-
-            "content": "check out awesomae beches",
-            "id": 1},
-            {"title": "favorite foods",
-            "content": "I like pizza",
-            "id": 2}]
-
-def find_post(id):
-    for post in posts:
-        if post.get("id", -1) == id:
-            return post
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-                        detail=f'There are no post with id {id}')
-
-def find_index(id):
-    for i, v in enumerate(posts):
-        if v.get('id') == id:
-            return i
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-                        detail=f'There are no post with id {id}')
-
+# main page
 @app.get("/")
 def root():
     return {"message": "Welcome to my api!"}
 
 
+# get all posts with HTTP GET method
 @app.get("/posts")
 def get_posts():
-    return {"data": posts}
+    cursor.execute("SELECT * FROM post")
+    return {"data": cursor.fetchall()}
 
 
-
+# create new post with HTTP POST method
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 def create_posts(post: Post):
-    dict_post = post.dict()
-    dict_post['id'] = posts[-1].get('id', 0) + 1
-    posts.append(dict_post)
-    return {"data": dict_post}
+    cursor.execute("INSERT INTO post (title, content, published) VALUES (%s, %s, %s) RETURNING *", (post.title, post.content, post.published))
+    conn.commit()
+    return {"data": cursor.fetchone()}
 
 
+# get detailed view post by id with HTTP GET method
 @app.get("/posts/{id}")
-def get_post(id: int, response: Response):
-    return {"detail post": find_post(id)}
+def get_post(id: int):
+    cursor.execute("SELECT * FROM post WHERE id = %s", (str(id)))
+    post = cursor.fetchone()
+    if post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
+                        detail=f'There are no post with id {id}')
+    return {"detail post": post}
 
 
+# delete post by id with HTTP DELETE method
 @app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
-    posts.pop(find_index(id))
+    cursor.execute("DELETE FROM post WHERE id = %s RETURNING *", (str(id)))
+    post = cursor.fetchone()
+    conn.commit()
+    if post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
+                        detail=f'There are no post with id {id}')
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# change or update post by HTTP PUT method
 @app.put('/posts/{id}')
 def update_post(id: int, post: Post):
-    index = find_index(id)
-    posts[index] = post.dict()
-    posts[index]['id'] = id
-    return {'data': find_post(id)}
+    cursor.execute("UPDATE post SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *", (post.title, post.content, post.published, str(id)))
+    conn.commit()
+    updated_post = cursor.fetchone()
+    if updated_post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
+                        detail=f'There are no post with id {id}')
+    return {'data': updated_post}
