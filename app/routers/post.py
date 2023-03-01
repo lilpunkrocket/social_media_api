@@ -13,7 +13,7 @@ router = APIRouter(
 
 # get all posts with HTTP GET method
 @router.get("/", response_model=List[schemas.PostResponse])
-def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def get_posts(db: Session = Depends(get_db), current_user = Depends(oauth2.get_current_user)):
     # cursor.execute("SELECT * FROM posts")
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
@@ -22,11 +22,11 @@ def get_posts(db: Session = Depends(get_db), current_user: int = Depends(oauth2.
 
 # create new post with HTTP POST method
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponse)
-def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user = Depends(oauth2.get_current_user)):
     # cursor.execute("INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *", (post.title, post.content, post.published))
     # conn.commit()
     # return {"data": cursor.fetchone()}
-    new_post = models.Post(**post.dict())
+    new_post = models.Post(owner_id= current_user.id, **post.dict())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -35,7 +35,7 @@ def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), curren
 
 # get detailed view post by id with HTTP GET method
 @router.get("/{id}", response_model=schemas.PostResponse)
-def get_post(id: int, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def get_post(id: int, db: Session = Depends(get_db), current_user = Depends(oauth2.get_current_user)):
     # cursor.execute("SELECT * FROM posts WHERE id = %s", (str(id)))
     # post = cursor.fetchone()
 
@@ -50,18 +50,22 @@ def get_post(id: int, db: Session = Depends(get_db), current_user: int = Depends
 
 # delete post by id with HTTP DELETE method
 @router.delete('/{id}', status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def delete_post(id: int, db: Session = Depends(get_db), current_user = Depends(oauth2.get_current_user)):
     # cursor.execute("DELETE FROM posts WHERE id = %s RETURNING *", (str(id)))
     # post = cursor.fetchone()
     # conn.commit()
 
-    post = db.query(models.Post).filter(models.Post.id == id)
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
 
-    if post.first() == None:
+    if post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                         detail=f'There are no post with id {id}')
 
-    post.delete(synchronize_session=False)
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, detail="Not allowed to perform requested action")
+
+    post_query.delete(synchronize_session=False)
     db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -69,16 +73,20 @@ def delete_post(id: int, db: Session = Depends(get_db), current_user: int = Depe
 
 # change or update post by HTTP PUT method
 @router.put('/{id}', response_model=schemas.PostResponse)
-def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db), current_user = Depends(oauth2.get_current_user)):
     # cursor.execute("UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *", (post.title, post.content, post.published, str(id)))
     # conn.commit()
     # updated_post = cursor.fetchone()
 
     post_query = db.query(models.Post).filter(models.Post.id == id)
+    selected_post = post_query.first()
 
-    if post_query.first() == None:
+    if selected_post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                         detail=f'There are no post with id {id}')
+    
+    if selected_post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, detail="Not allowed to perform requested action")
 
     post_query.update(post.dict(), synchronize_session=False) # type: ignore
     db.commit()
