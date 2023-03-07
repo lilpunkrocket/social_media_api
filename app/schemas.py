@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, conint
 from datetime import datetime
 
 # our data schema
@@ -42,6 +42,13 @@ class PostResponse(PostBase):
         orm_mode = True
 
 
+class PostOut(BaseModel):
+    Post: PostResponse
+    votes: int
+
+    class Config:
+        orm_mode = True
+
 class Token(BaseModel):
     acces_token: str
     token_type: str
@@ -49,3 +56,8 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[str] = None
+
+
+class Vote(BaseModel):
+    post_id: int
+    dir: conint(ge=-1, le=1)
